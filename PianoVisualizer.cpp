@@ -113,6 +113,63 @@ void PianoVisualizer::updateFromFrequencies(const float* frequencies, const floa
     }
 }
 
+void PianoVisualizer::updateFromAPU(const int* periods, const int* lengths, const int* amplitudes, float current_time) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+        int period = periods[ch];
+        int length = lengths[ch];
+        int amp = std::abs(amplitudes[ch]);  // Amplitude can be negative
+        
+        // Calculate frequency from period
+        // NES APU frequency formula:
+        // Square/Triangle: freq = CPU_CLOCK / (16 * (period + 1))
+        float freq = 0;
+        int midi_note = -1;
+        float velocity = 0;
+        
+        if (ch == 3) {
+            // Noise channel - map to low notes as rhythm indicator
+            // Use a fixed low note range (C2-C3) based on noise "pitch" setting
+            int noise_idx = period & 0x0F;
+            if (length > 0 && amp > 0) {
+                // Map noise period (0-15) to notes C2 (36) to C3 (48)
+                midi_note = 36 + (15 - noise_idx);  // Lower period = higher "pitch"
+                velocity = std::min(1.0f, static_cast<float>(amp) / 15.0f);
+            }
+        } else if (ch == 4) {
+            // DMC channel - show as a low bass note when active
+            if (length > 0 && amp > 0) {
+                midi_note = 28;  // E1 - very low note for DMC
+                velocity = std::min(1.0f, static_cast<float>(amp) / 127.0f);
+            }
+        } else {
+            // Square1, Square2, Triangle
+            // Skip if channel is silent
+            if (length == 0 || amp == 0 || period < 8) {
+                // Note off (period < 8 produces ultrasonic frequencies)
+                processNoteChange(ch, -1, 0.0f, current_time);
+                continue;
+            }
+            
+            freq = NES_CPU_CLOCK / (16.0f * (period + 1));
+            midi_note = frequencyToMidi(freq);
+            
+            // Normalize amplitude
+            // Square channels: 0-15, Triangle: 0-15 (but uses different scale)
+            float max_amp = (ch == 2) ? 15.0f : 15.0f;
+            velocity = std::min(1.0f, static_cast<float>(amp) / max_amp);
+        }
+        
+        // Only show notes within reasonable MIDI range
+        if (midi_note >= 0 && midi_note <= 127 && velocity > 0.01f) {
+            processNoteChange(ch, midi_note, velocity, current_time);
+        } else {
+            processNoteChange(ch, -1, 0.0f, current_time);
+        }
+    }
+}
+
 float PianoVisualizer::detectFrequency(const float* samples, int count, long sample_rate) {
     if (count < 64) return 0;
     

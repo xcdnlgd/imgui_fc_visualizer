@@ -17,6 +17,8 @@
 
 // Game_Music_Emu for NSF file support
 #include "gme/gme.h"
+#include "gme/Nsf_Emu.h"
+#include "gme/Nes_Apu.h"
 
 // Native File Dialog for file selection
 #include "nfd.h"
@@ -106,8 +108,21 @@ void audio_stream_callback(float* buffer, int num_frames, int num_channels, void
     float current_time = gme_tell(state.emu) / 1000.0f;
     state.playback_time.store(current_time);
     
-    // Update piano visualizer
-    state.piano.updateFromAudio(temp_buffer.data(), num_samples, state.sample_rate, current_time);
+    // Update piano visualizer with APU data
+    // Try to get APU data directly from Nsf_Emu
+    Nsf_Emu* nsf = dynamic_cast<Nsf_Emu*>(state.emu);
+    if (nsf) {
+        Nes_Apu* apu = nsf->apu_();
+        if (apu) {
+            int periods[5], lengths[5], amplitudes[5];
+            for (int i = 0; i < 5; ++i) {
+                periods[i] = apu->osc_period(i);
+                lengths[i] = apu->osc_length(i);
+                amplitudes[i] = apu->osc_amplitude(i);
+            }
+            state.piano.updateFromAPU(periods, lengths, amplitudes, current_time);
+        }
+    }
     
     // Convert 16-bit signed integer to 32-bit float (-1.0 to 1.0)
     // Apply volume control

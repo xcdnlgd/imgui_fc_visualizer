@@ -51,7 +51,13 @@ public:
     // amplitudes: array of 5 amplitudes (0.0 - 1.0)
     void updateFromFrequencies(const float* frequencies, const float* amplitudes, float current_time);
 
-    // Update with audio data for frequency detection
+    // Update with NES APU register data directly
+    // periods: array of 5 period values from APU oscillators
+    // lengths: array of 5 length counter values (0 = silent)
+    // amplitudes: array of 5 amplitude values
+    void updateFromAPU(const int* periods, const int* lengths, const int* amplitudes, float current_time);
+
+    // Update with audio data for frequency detection (fallback)
     void updateFromAudio(const short* samples, int sample_count, long sample_rate, float current_time);
 
     // Draw the piano keyboard

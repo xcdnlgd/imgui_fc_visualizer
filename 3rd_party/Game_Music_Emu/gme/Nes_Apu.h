@@ -94,6 +94,23 @@ public:
 	// accounted for (i.e. inserting CPU wait states).
 	void run_until( nes_time_t );
 	
+	// Get oscillator info for visualization
+	// Returns period value for oscillator (0-4: Square1, Square2, Triangle, Noise, DMC)
+	int osc_period( int osc ) const { 
+		if ((unsigned)osc < osc_count) return oscs[osc]->period();
+		return 0;
+	}
+	// Returns length counter (0 = silent)
+	int osc_length( int osc ) const {
+		if ((unsigned)osc < osc_count) return oscs[osc]->length_counter;
+		return 0;
+	}
+	// Returns last amplitude
+	int osc_amplitude( int osc ) const {
+		if ((unsigned)osc < osc_count) return oscs[osc]->last_amp;
+		return 0;
+	}
+	
 public:
 	Nes_Apu();
 	BLARGG_DISABLE_NOTHROW
