@@ -66,3 +66,6 @@ add_library(game_music_emu STATIC
     Game_Music_Emu/gme/Ym2612_Emu.cpp
     Game_Music_Emu/gme/Sms_Apu.cpp)
 target_include_directories(game_music_emu PUBLIC Game_Music_Emu)
+
+# nfd
+add_subdirectory(nativefiledialog-extended)

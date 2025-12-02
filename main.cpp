@@ -16,6 +16,9 @@
 // Game_Music_Emu for NSF file support
 #include "gme/gme.h"
 
+// Native File Dialog for file selection
+#include "nfd.h"
+
 static bool show_test_window = true;
 static bool show_another_window = false;
 
@@ -87,6 +90,9 @@ void init(void) {
     
     saudio_setup(&audio_desc);
     state.audio_initialized = saudio_isvalid();
+    
+    // Initialize Native File Dialog
+    NFD_Init();
 }
 
 void frame(void) {
@@ -103,6 +109,50 @@ void frame(void) {
     // File loading
     ImGui::InputText("NSF File Path", state.loaded_file, sizeof(state.loaded_file));
     ImGui::SameLine();
+    if (ImGui::Button("Browse...")) {
+        // File filter for NSF files
+        nfdu8filteritem_t filterItem[2];
+        filterItem[0].name = "NES Sound Files";
+        filterItem[0].spec = "nsf,nsfe";
+        filterItem[1].name = "All Files";
+        filterItem[1].spec = "*";
+        
+        nfdu8char_t* outPath = nullptr;
+        nfdresult_t result = NFD_OpenDialogU8(&outPath, filterItem, 2, nullptr);
+        
+        if (result == NFD_OKAY) {
+            // Copy selected path to loaded_file
+            strncpy(state.loaded_file, outPath, sizeof(state.loaded_file) - 1);
+            state.loaded_file[sizeof(state.loaded_file) - 1] = '\0';
+            NFD_FreePathU8(outPath);
+            
+            // Automatically load the selected file
+            if (state.emu) {
+                gme_delete(state.emu);
+                state.emu = nullptr;
+            }
+            
+            gme_err_t err = gme_open_file(state.loaded_file, &state.emu, state.sample_rate);
+            if (err) {
+                strncpy(state.error_msg, err, sizeof(state.error_msg) - 1);
+                state.error_msg[sizeof(state.error_msg) - 1] = '\0';
+            } else {
+                state.track_count = gme_track_count(state.emu);
+                state.current_track = 0;
+                state.error_msg[0] = '\0';
+            }
+        } else if (result == NFD_CANCEL) {
+            // User cancelled, do nothing
+        } else {
+            // Error occurred
+            const char* error = NFD_GetError();
+            if (error) {
+                strncpy(state.error_msg, error, sizeof(state.error_msg) - 1);
+                state.error_msg[sizeof(state.error_msg) - 1] = '\0';
+            }
+        }
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Load NSF")) {
         if (state.emu) {
             gme_delete(state.emu);
@@ -117,7 +167,6 @@ void frame(void) {
             state.track_count = gme_track_count(state.emu);
             state.current_track = 0;
             state.error_msg[0] = '\0';
-            ImGui::Text("Loaded successfully! Tracks: %d", state.track_count);
         }
     }
     
@@ -246,6 +295,9 @@ void cleanup(void) {
     if (state.audio_initialized) {
         saudio_shutdown();
     }
+    
+    // Cleanup Native File Dialog
+    NFD_Quit();
     
     simgui_shutdown();
     sg_shutdown();
