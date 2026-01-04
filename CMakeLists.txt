@@ -17,6 +17,7 @@ add_executable(imgui_fc_visualizer
     NesEmulator.h
 )
 target_link_libraries(imgui_fc_visualizer PRIVATE sokol imgui game_music_emu agnes nfd)
+target_compile_options(imgui_fc_visualizer PUBLIC $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<COMPILE_LANGUAGE:CUDA>>>:/wd4819>)
 
 # Include directories for gme headers
 target_include_directories(imgui_fc_visualizer PRIVATE 
