@@ -31,6 +31,27 @@
 // NES Emulator
 #include "NesEmulator.h"
 
+#include <cctype>
+#include <cstring>
+
+// Helper function to check file extension (case-insensitive)
+static bool has_extension(const char* path, const char* ext) {
+    if (!path || !ext) return false;
+    size_t path_len = strlen(path);
+    size_t ext_len = strlen(ext);
+    if (path_len < ext_len + 1) return false;
+    
+    const char* file_ext = path + path_len - ext_len;
+    if (file_ext[-1] != '.') return false;
+    
+    for (size_t i = 0; i < ext_len; i++) {
+        if (tolower((unsigned char)file_ext[i]) != tolower((unsigned char)ext[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool show_demo_window = false;
 static bool show_visualizer = true;
 static bool show_piano = true;
@@ -952,6 +973,23 @@ void cleanup(void) {
 void input(const sapp_event* ev) {
     simgui_handle_event(ev);
     
+    // Handle file drag and drop
+    if (ev->type == SAPP_EVENTTYPE_FILES_DROPPED) {
+        const int num_files = sapp_get_num_dropped_files();
+        if (num_files > 0) {
+            const char* path = sapp_get_dropped_file_path(0);
+            if (path && path[0] != '\0') {
+                // Check file extension and load appropriately
+                if (has_extension(path, "nsf") || has_extension(path, "nsfe")) {
+                    load_nsf_file(path);
+                    postload_preprocess();
+                } else if (has_extension(path, "nes")) {
+                    load_nes_rom(path);
+                }
+            }
+        }
+    }
+    
     // Track key states for NES controller input
     if (ev->type == SAPP_EVENTTYPE_KEY_DOWN) {
         if (ev->key_code < 512) key_states[ev->key_code] = true;
@@ -1055,5 +1093,11 @@ sapp_desc sokol_main(int argc, char* argv[]) {
     _sapp_desc.window_title = "NES Music Player - NSF Visualizer";
     _sapp_desc.icon.sokol_default = true;
     _sapp_desc.logger.func = slog_func;
+    
+    // Enable drag and drop support
+    _sapp_desc.enable_dragndrop = true;
+    _sapp_desc.max_dropped_files = 1;
+    _sapp_desc.max_dropped_file_path_length = 4096;
+    
     return _sapp_desc;
 }
